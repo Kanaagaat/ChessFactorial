@@ -1,4 +1,10 @@
-Django>=6.0.3
-django-cors-headers
+Django>=4.2,<5.0
 djangorestframework
 djangorestframework-simplejwt
+django-cors-headers
+gunicorn
+dj-database-url
+whitenoise
+python-decouple
+psycopg2-binary
+google-genai
