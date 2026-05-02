@@ -1,6 +1,6 @@
 # ♟ Tactical Scholar — Factorial Chess Academy
 
-> **A modern chess platform where intellectual challenge meets competitive play.**
+> **git branch -M main.**
 > Solve math problems to unlock your moves in the unique **Factorial Chess** mode.
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)

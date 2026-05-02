@@ -4,7 +4,7 @@ import { Button } from "../components/ui/Button"
 import { useAppState } from "../state/AppStateProvider"
 import { useNavigate } from "react-router-dom"
 import { cn } from "../lib/utils"
-import { Trophy, Swords, Target, TrendingUp, BarChart3, Clock, ChevronRight } from "lucide-react"
+import { Trophy, Swords, Target, TrendingUp, Clock, ChevronRight } from "lucide-react"
 
 export function Profile() {
   const { state } = useAppState()

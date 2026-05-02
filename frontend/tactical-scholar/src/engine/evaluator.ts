@@ -2,7 +2,7 @@
  * Chess position evaluator + minimax AI with alpha-beta pruning
  * Used for built-in AI opponent and basic analysis
  */
-import { Chess, type Square, type Move, type Color } from "chess.js"
+import { Chess, type Color } from "chess.js"
 
 // Piece values in centipawns
 const PIECE_VALUES: Record<string, number> = {

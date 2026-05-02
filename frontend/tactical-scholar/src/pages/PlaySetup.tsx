@@ -7,7 +7,7 @@ import { Button } from "../components/ui/Button"
 import { Card, CardContent } from "../components/ui/Card"
 import { cn } from "../lib/utils"
 import {
-  Brain, Swords, Zap, Timer, Crown, Shuffle,
+  Brain, Swords, Crown, Shuffle,
   Clock, Bot, Users, ChevronRight,
 } from "lucide-react"
 import type { GameMode, GameConfig } from "../hooks/useChessGame"

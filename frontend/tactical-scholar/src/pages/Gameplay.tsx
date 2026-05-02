@@ -14,7 +14,6 @@ import { Card } from "../components/ui/Card"
 import { useChessGame, type GameConfig } from "../hooks/useChessGame"
 import { useAppState } from "../state/AppStateProvider"
 import { Flag, RotateCcw, Brain } from "lucide-react"
-import { cn } from "../lib/utils"
 
 const DEFAULT_CONFIG: GameConfig = {
   mode: "standard",

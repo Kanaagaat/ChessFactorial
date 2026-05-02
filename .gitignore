@@ -28,3 +28,5 @@ frontend/chess-frontend/dist/
 # IDEs
 .vscode/
 .idea/
+.vercel
+.env*.local

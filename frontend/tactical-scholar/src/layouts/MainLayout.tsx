@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { Home, Users, History, Swords, User, LogOut, Bell, Trophy, ShoppingBag, BarChart3 } from "lucide-react"
+import { Home, Users, History, Swords, User, LogOut, Bell, Trophy, ShoppingBag } from "lucide-react"
 import { cn } from "../lib/utils"
 import { useAppState } from "../state/AppStateProvider"
 
