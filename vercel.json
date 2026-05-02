@@ -12,11 +12,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/backend/api/$1"
+      "destination": "https://your-production-backend-url.com/api/$1"
     },
     {
       "source": "/(.*)",
-      "destination": "/frontend/$1"
+      "destination": "/index.html"
     }
   ]
 }
