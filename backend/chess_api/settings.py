@@ -7,7 +7,7 @@ from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config("SECRET_KEY", default="dev-secret-key")
+SECRET_KEY = config("SECRET_KEY", default="RLDEpMB7g-2PHoeznAIUE3dzpMt8I6iISMeILy2Fr9A")
 DEBUG = config("DEBUG", default=True, cast=bool)
 ALLOWED_HOSTS = [host.strip() for host in config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",") if host.strip()]
 

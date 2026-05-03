@@ -100,19 +100,31 @@ This isn't just another chess site. It's a platform designed for players who wan
 
 ## 🚀 Getting Started
 
+### 1. Backend (Django)
+
 ```bash
-# Clone the repo
-git clone https://github.com/your-username/ChessFactorial.git
-cd ChessFactorial/frontend/tactical-scholar
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run migrations
+python manage.py migrate
+
+# Start Django server
+python manage.py runserver
+```
+
+### 2. Frontend (React)
+
+```bash
+cd frontend/tactical-scholar
 
 # Install dependencies
 npm install
 
-# Start dev server
+# Start Vite dev server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
 The app runs at `http://localhost:5173` by default.
