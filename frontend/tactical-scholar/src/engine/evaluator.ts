@@ -289,3 +289,54 @@ export function classifyMove(
 
   return { classification, bestMove: best.move, evalDiff }
 }
+
+/**
+ * Async move analysis using API for best move and fast local eval for diff
+ */
+export async function classifyMoveAsync(
+  fen: string,
+  playedMove: string,
+  depth: number = 3
+): Promise<{ classification: string; bestMove: string; evalDiff: number }> {
+  const chess = new Chess(fen)
+  const isWhite = chess.turn() === "w"
+  const nodesSearched = { count: 0 }
+
+  // Get best move from fast API
+  const best = await findBestMoveAsync(fen, "hard")
+
+  // Fast path if player found the best move
+  if (playedMove === best.move || playedMove === best.move.replace(/[^a-zA-Z0-9]/g, "")) {
+    return { classification: "best", bestMove: best.move, evalDiff: 0 }
+  }
+
+  // Local fallback for diff evaluation
+  try {
+    chess.move(playedMove)
+    const playedEval = minimax(chess, depth - 1, -Infinity, Infinity, isWhite, nodesSearched)
+    chess.undo()
+
+    chess.move(best.move)
+    const bestEval = minimax(chess, depth - 1, -Infinity, Infinity, isWhite, nodesSearched)
+    chess.undo()
+
+    const evalDiff = Math.abs(bestEval - playedEval)
+
+    let classification: string
+    if (evalDiff < 10) {
+      classification = "best"
+    } else if (evalDiff < 50) {
+      classification = "good"
+    } else if (evalDiff < 100) {
+      classification = "inaccuracy"
+    } else if (evalDiff < 250) {
+      classification = "mistake"
+    } else {
+      classification = "blunder"
+    }
+
+    return { classification, bestMove: best.move, evalDiff }
+  } catch (e) {
+    return { classification: "good", bestMove: best.move, evalDiff: 0 }
+  }
+}

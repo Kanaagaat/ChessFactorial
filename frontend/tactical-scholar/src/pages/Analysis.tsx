@@ -51,47 +51,49 @@ export function Analysis() {
 
     const results: MoveAnalysis[] = []
     const analyzeChess = new Chess()
+    let isCancelled = false
 
-    // Analyze each move (do in batches to not block UI)
-    let i = 0
-    const analyzeNext = () => {
-      if (i >= moves.length) {
-        setAnalysis(results)
-        setIsAnalyzing(false)
-        return
+    const runAnalysis = async () => {
+      // Analyze each move
+      for (let i = 0; i < moves.length; i++) {
+        if (isCancelled) return
+        const move = moves[i]
+        const fen = analyzeChess.fen()
+
+        try {
+          // Dynamically import to ensure we have the async function available
+          const { classifyMoveAsync } = await import("../engine/evaluator")
+          const classification = await classifyMoveAsync(fen, move.san)
+          const evalScore = evaluatePosition(analyzeChess) / 100
+          results.push({
+            move,
+            classification: classification.classification,
+            bestMove: classification.bestMove,
+            evalDiff: classification.evalDiff,
+            eval: evalScore,
+          })
+        } catch {
+          results.push({
+            move,
+            classification: "good",
+            bestMove: move.san,
+            evalDiff: 0,
+            eval: 0,
+          })
+        }
+
+        analyzeChess.move(move.san)
+        // Update state incrementally
+        setAnalysis([...results])
       }
-
-      const move = moves[i]
-      const fen = analyzeChess.fen()
-
-      try {
-        const classification = classifyMove(fen, move.san)
-        const evalScore = evaluatePosition(analyzeChess) / 100
-        results.push({
-          move,
-          classification: classification.classification,
-          bestMove: classification.bestMove,
-          evalDiff: classification.evalDiff,
-          eval: evalScore,
-        })
-      } catch {
-        results.push({
-          move,
-          classification: "good",
-          bestMove: move.san,
-          evalDiff: 0,
-          eval: 0,
-        })
-      }
-
-      analyzeChess.move(move.san)
-      i++
-
-      // Process next move in next frame
-      requestAnimationFrame(analyzeNext)
+      setIsAnalyzing(false)
     }
 
-    requestAnimationFrame(analyzeNext)
+    runAnalysis()
+
+    return () => {
+      isCancelled = true
+    }
   }, [moves])
 
   // Navigate to specific move
