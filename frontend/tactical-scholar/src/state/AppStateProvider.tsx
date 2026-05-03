@@ -143,7 +143,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const refreshAccessToken = React.useCallback(async (refreshToken: string) => {
     const data = await refreshAuthToken({ refresh: refreshToken });
-    persistTokens(data.access, data.refresh);
+    const newRefresh = data.refresh || refreshToken;
+    persistTokens(data.access, newRefresh);
     return data.access;
   }, [persistTokens]);
 
