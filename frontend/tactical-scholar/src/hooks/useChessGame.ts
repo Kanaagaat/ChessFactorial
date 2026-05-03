@@ -4,7 +4,7 @@
 import * as React from "react"
 import type { Square, Move, PieceSymbol, Color } from "chess.js"
 import { createEngine, type ChessEngine, type GameState } from "../engine/chessEngine"
-import { findBestMove, type AIDifficulty } from "../engine/evaluator"
+import { type AIDifficulty } from "../engine/evaluator"
 import { generateProblem, getTimeBonus, type MathProblem, type MathDifficulty } from "../engine/factorial"
 import { useTimer, type TimerState } from "./useTimer"
 
