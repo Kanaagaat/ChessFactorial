@@ -11,6 +11,7 @@ interface PlayerPanelProps {
   isAi?: boolean
   isThinking?: boolean
   capturedPieces?: string[]
+  materialAdvantage?: number
   isTop?: boolean
 }
 
@@ -27,13 +28,11 @@ export function PlayerPanel({
   isAi = false,
   isThinking = false,
   capturedPieces = [],
+  materialAdvantage = 0,
   isTop = false,
 }: PlayerPanelProps) {
   const isLowTime = time < 30000
   const isCritical = time < 10000
-
-  // Calculate material advantage
-  const materialValue = capturedPieces.reduce((sum, p) => sum + (PIECE_VALUES[p] || 0), 0)
 
   // Sort captured pieces for display
   const sortedCaptures = [...capturedPieces].sort(
@@ -80,9 +79,9 @@ export function PlayerPanel({
                 {PIECE_DISPLAY[p] || ""}
               </span>
             ))}
-            {materialValue > 0 && (
-              <span className="text-[10px] text-primary font-bold ml-1">+{materialValue}</span>
-            )}
+            {materialAdvantage > 0 ? (
+              <span className="text-[10px] text-primary font-bold ml-1">+{materialAdvantage}</span>
+            ) : null}
           </div>
         </div>
       </div>

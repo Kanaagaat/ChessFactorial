@@ -1,7 +1,9 @@
+import * as React from "react"
 import { Outlet, Link, useLocation } from "react-router-dom"
-import { Home, Users, History, Swords, User, LogOut, Bell, Trophy, ShoppingBag } from "lucide-react"
+import { Home, Users, History, Swords, User, LogOut, Bell, Trophy, ShoppingBag, X } from "lucide-react"
 import { cn } from "../lib/utils"
 import { useAppState } from "../state/AppStateProvider"
+import { socketClient } from "../realtime/socketClient"
 
 export function MainLayout() {
   const location = useLocation()
@@ -88,8 +90,7 @@ export function MainLayout() {
             </span>
             <div className="relative">
               <button 
-                onClick={() => alert("No new notifications")}
-                className="relative p-2 rounded-full hover:bg-white/5 text-text-secondary transition-colors"
+                className="relative p-2 rounded-full hover:bg-white/5 text-text-secondary transition-colors cursor-default"
               >
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full" />
@@ -124,6 +125,72 @@ export function MainLayout() {
           )
         })}
       </nav>
+      <NotificationSystem />
+    </div>
+  )
+}
+
+function NotificationSystem() {
+  const [notifications, setNotifications] = React.useState<any[]>([])
+  
+  React.useEffect(() => {
+    const unsubscribe = socketClient.onNotification((event) => {
+      if (event.type === "game_invite_received") {
+        setNotifications(prev => [...prev, {
+          id: Date.now(),
+          title: "Game Invite",
+          message: `${event.data.sender_username} challenged you!`,
+          type: "invite",
+          data: event.data
+        }])
+      } else if (event.type === "friend_request_received") {
+        setNotifications(prev => [...prev, {
+          id: Date.now(),
+          title: "Friend Request",
+          message: `${event.data.sender_username} wants to be friends.`,
+          type: "friend"
+        }])
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+  
+  const dismiss = (id: number) => {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }
+  
+  if (notifications.length === 0) return null
+  
+  return (
+    <div className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-50 flex flex-col gap-3 w-80">
+      {notifications.map(n => (
+        <div key={n.id} className="bg-surface border border-primary/30 p-4 rounded-xl shadow-2xl animate-in slide-in-from-right-8">
+          <div className="flex items-start justify-between mb-2">
+            <h4 className="font-bold text-text-primary text-sm">{n.title}</h4>
+            <button onClick={() => dismiss(n.id)} className="text-text-secondary hover:text-text-primary">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-sm text-text-secondary mb-3">{n.message}</p>
+          {n.type === "invite" && (
+            <div className="flex gap-2">
+              <Link 
+                to={`/gameplay?id=${n.data.game_id}&role=black&mode=${n.data.game_config.mode}`} 
+                onClick={() => dismiss(n.id)}
+                className="flex-1 bg-primary text-primary-foreground text-center py-1.5 rounded-md text-xs font-bold hover:bg-primary/90 transition-colors"
+              >
+                Accept
+              </Link>
+              <button 
+                onClick={() => dismiss(n.id)}
+                className="flex-1 bg-white/5 text-text-primary text-center py-1.5 rounded-md text-xs font-bold hover:bg-white/10 transition-colors"
+              >
+                Decline
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

@@ -62,6 +62,8 @@ export function useChessGame(config: Partial<GameConfig> = {}) {
   const [promotionPending, setPromotionPending] = React.useState<{ from: Square; to: Square } | null>(null)
   const mathStartTimeRef = React.useRef(0)
   const mathIntervalRef = React.useRef<number | null>(null)
+  const aiWorkerRef = React.useRef<Worker | null>(null)
+  const makeAiMoveRef = React.useRef<() => void>(() => {})
 
   const timer = useTimer(gameConfig.timeControl, gameConfig.increment)
 
@@ -75,7 +77,6 @@ export function useChessGame(config: Partial<GameConfig> = {}) {
     return state.turn === gameConfig.playerColor
   }, [gameConfig.opponent, gameConfig.playerColor])
 
-  // Start factorial math phase
   const startMathPhase = React.useCallback(() => {
     if (gameConfig.mode !== "factorial") return
     const problem = generateProblem(gameConfig.mathDifficulty)
@@ -91,12 +92,97 @@ export function useChessGame(config: Partial<GameConfig> = {}) {
       setMathTimeRemaining(remaining)
       if (remaining <= 0) {
         if (mathIntervalRef.current) clearInterval(mathIntervalRef.current)
-        // Time ran out — lose the move (auto random move or skip)
         setIsMathPhase(false)
         setMathProblem(null)
+
+        // Penalty: force a random legal move
+        const state = engineRef.current.getState()
+        if (!state.isGameOver) {
+          const chess = engineRef.current.getRawChess()
+          const moves = chess.moves({ verbose: true })
+          if (moves.length > 0) {
+            const random = moves[Math.floor(Math.random() * moves.length)]
+            engineRef.current.makeMove(random.from, random.to, random.promotion)
+            syncState()
+            // Deduct 3 seconds as additional penalty
+            timer.addTime(state.turn, -3000)
+            const newState = engineRef.current.getState()
+            if (newState.isGameOver) {
+              timer.pause()
+            } else {
+              timer.switchTurn(newState.turn)
+              // If AI, trigger AI response
+              if (gameConfig.opponent === "ai" && newState.turn !== gameConfig.playerColor) {
+                makeAiMoveRef.current()
+              }
+            }
+          }
+        }
       }
     }, 100)
-  }, [gameConfig.mode, gameConfig.mathDifficulty])
+  }, [gameConfig.mode, gameConfig.mathDifficulty, gameConfig.opponent, gameConfig.playerColor, syncState, timer])
+
+  const processAiResult = React.useCallback((result: { move: string; evaluation: number }) => {
+    const currentState = engineRef.current.getState()
+    if (currentState.isGameOver) {
+      setIsAiThinking(false)
+      return
+    }
+
+    if (result.move) {
+      const chess = engineRef.current.getRawChess()
+      const verbose = chess.moves({ verbose: true }).find((m) => m.san === result.move)
+      if (verbose) {
+        engineRef.current.makeMove(verbose.from, verbose.to, verbose.promotion)
+      } else {
+        chess.move(result.move)
+      }
+      syncState()
+      const newState = engineRef.current.getState()
+      if (!newState.isGameOver) {
+        timer.switchTurn(newState.turn)
+        if (gameConfig.mode === "factorial") {
+          startMathPhase()
+        }
+      } else {
+        timer.pause()
+      }
+    }
+    setIsAiThinking(false)
+  }, [gameConfig.mode, syncState, timer, startMathPhase])
+
+  const makeAiMove = React.useCallback(async () => {
+    const state = engineRef.current.getState()
+    if (state.isGameOver) return
+
+    setIsAiThinking(true)
+    const worker = aiWorkerRef.current
+    if (worker) {
+      worker.postMessage({ fen: state.fen, difficulty: gameConfig.aiDifficulty })
+      return
+    }
+
+    try {
+      // Import dynamically or assume it's imported at the top (we need to ensure it's imported)
+      // Actually we must import it at the top of the file. I will do a separate replace for imports if needed.
+      const { findBestMoveAsync } = await import("../engine/evaluator")
+      const result = await findBestMoveAsync(state.fen, gameConfig.aiDifficulty)
+      
+      const currentState = engineRef.current.getState()
+      if (currentState.isGameOver) {
+        setIsAiThinking(false)
+        return
+      }
+      processAiResult(result)
+    } catch (e) {
+      console.error(e)
+      setIsAiThinking(false)
+    }
+  }, [gameConfig.aiDifficulty, processAiResult])
+
+  React.useEffect(() => {
+    makeAiMoveRef.current = makeAiMove
+  }, [makeAiMove])
 
   const solveMath = React.useCallback((answer: string): boolean => {
     if (!mathProblem) return false
@@ -117,47 +203,32 @@ export function useChessGame(config: Partial<GameConfig> = {}) {
     return false
   }, [mathProblem, timer])
 
-  // AI move
-  const makeAiMove = React.useCallback(() => {
-    const state = engineRef.current.getState()
-    if (state.isGameOver) return
+  const executeMove = React.useCallback((from: Square, to: Square, promotion?: PieceSymbol) => {
+    const move = engineRef.current.makeMove(from, to, promotion)
+    if (!move) return
 
-    setIsAiThinking(true)
-    // Use setTimeout to not block UI
-    window.setTimeout(() => {
-      const currentState = engineRef.current.getState()
-      if (currentState.isGameOver) {
-        setIsAiThinking(false)
-        return
-      }
-      const result = findBestMove(currentState.fen, gameConfig.aiDifficulty)
-      if (result.move) {
-        // Parse the SAN move to get from/to squares
-        const chess = engineRef.current.getRawChess()
-        const verbose = chess.moves({ verbose: true }).find((m) => m.san === result.move)
-        if (verbose) {
-          engineRef.current.makeMove(verbose.from, verbose.to, verbose.promotion)
-        } else {
-          // Fallback: try direct SAN move
-          chess.move(result.move)
-        }
-        syncState()
-        const newState = engineRef.current.getState()
-        if (!newState.isGameOver) {
-          timer.switchTurn(newState.turn)
-          // Start math phase for player's turn in factorial mode
-          if (gameConfig.mode === "factorial") {
-            startMathPhase()
-          }
-        } else {
-          timer.pause()
-        }
-      }
-      setIsAiThinking(false)
-    }, 300 + Math.random() * 500) // Simulate thinking time
-  }, [gameConfig.aiDifficulty, gameConfig.mode, syncState, timer, startMathPhase])
+    syncState()
+    setSelectedSquare(null)
+    setLegalMoves([])
+    setPromotionPending(null)
 
-  // Handle square click
+    const newState = engineRef.current.getState()
+    if (newState.isGameOver) {
+      timer.pause()
+      return
+    }
+
+    timer.switchTurn(newState.turn)
+
+    // If AI opponent, trigger AI move
+    if (gameConfig.opponent === "ai" && newState.turn !== gameConfig.playerColor) {
+      makeAiMove()
+    } else if (gameConfig.mode === "factorial") {
+      // In local mode or player's next turn, start math phase
+      startMathPhase()
+    }
+  }, [syncState, timer, gameConfig.opponent, gameConfig.playerColor, gameConfig.mode, makeAiMove, startMathPhase])
+
   const handleSquareClick = React.useCallback((square: Square) => {
     if (gameState.isGameOver || isAiThinking || isMathPhase) return
     if (!isPlayerTurn() && gameConfig.opponent === "ai") return
@@ -195,33 +266,7 @@ export function useChessGame(config: Partial<GameConfig> = {}) {
       setSelectedSquare(square)
       setLegalMoves(engineRef.current.getLegalMoves(square))
     }
-  }, [gameState.isGameOver, isAiThinking, isMathPhase, isPlayerTurn, gameConfig.opponent, selectedSquare, legalMoves])
-
-  const executeMove = React.useCallback((from: Square, to: Square, promotion?: PieceSymbol) => {
-    const move = engineRef.current.makeMove(from, to, promotion)
-    if (!move) return
-
-    syncState()
-    setSelectedSquare(null)
-    setLegalMoves([])
-    setPromotionPending(null)
-
-    const newState = engineRef.current.getState()
-    if (newState.isGameOver) {
-      timer.pause()
-      return
-    }
-
-    timer.switchTurn(newState.turn)
-
-    // If AI opponent, trigger AI move
-    if (gameConfig.opponent === "ai" && newState.turn !== gameConfig.playerColor) {
-      makeAiMove()
-    } else if (gameConfig.mode === "factorial") {
-      // In local mode or player's next turn, start math phase
-      startMathPhase()
-    }
-  }, [syncState, timer, gameConfig.opponent, gameConfig.playerColor, gameConfig.mode, makeAiMove, startMathPhase])
+  }, [gameState.isGameOver, isAiThinking, isMathPhase, isPlayerTurn, gameConfig.opponent, selectedSquare, legalMoves, executeMove])
 
   const handlePromotion = React.useCallback((piece: PieceSymbol) => {
     if (!promotionPending) return

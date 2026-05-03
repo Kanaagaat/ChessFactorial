@@ -213,6 +213,41 @@ export function findBestMove(fen: string, difficulty: AIDifficulty): { move: str
 }
 
 /**
+ * Async API-based Stockfish evaluation for faster, non-blocking AI
+ */
+export async function findBestMoveAsync(fen: string, difficulty: AIDifficulty): Promise<{ move: string; evaluation: number }> {
+  const API_DEPTH_MAP: Record<AIDifficulty, number> = {
+    easy: 2,
+    medium: 5,
+    hard: 10,
+    master: 15,
+  }
+  try {
+    const depth = API_DEPTH_MAP[difficulty]
+    const res = await fetch("https://chess-api.com/v1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen, depth })
+    })
+    if (!res.ok) throw new Error("API error")
+    const data = await res.json()
+    
+    if (difficulty === "easy" && Math.random() < 0.3) {
+      const c = new Chess(fen)
+      const moves = c.moves()
+      if (moves.length > 0) {
+        return { move: moves[Math.floor(Math.random() * moves.length)], evaluation: 0 }
+      }
+    }
+    
+    return { move: data.san || data.move, evaluation: data.eval || 0 }
+  } catch (e) {
+    console.warn("AI fallback to JS engine", e)
+    return findBestMove(fen, difficulty)
+  }
+}
+
+/**
  * Analyze a move: compare player's move eval vs best move eval
  */
 export function classifyMove(
