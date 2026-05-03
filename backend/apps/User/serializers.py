@@ -34,3 +34,13 @@ class UserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+from .models import Friendship
+
+class FriendshipSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    receiver = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Friendship
+        fields = ("id", "sender", "receiver", "status", "created_at")

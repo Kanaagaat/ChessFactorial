@@ -57,6 +57,9 @@ class Migration(migrations.Migration):
             ],
             options={
                 "unique_together": {("sender", "receiver")},
+                "constraints": [
+                    models.CheckConstraint(check=~models.Q(sender=models.F("receiver")), name="prevent_self_friendship"),
+                ],
             },
         ),
     ]

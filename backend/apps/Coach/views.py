@@ -1,6 +1,6 @@
 import json
-import os
 from google import genai
+from decouple import config as env_config
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,7 +26,7 @@ class AnalyzeGameView(APIView):
             return Response(game.analysis)
 
         # 3. API Key Check
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = env_config("GEMINI_API_KEY", default="")
         if not api_key:
             return Response({"detail": "GEMINI_API_KEY is not set."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
