@@ -8,7 +8,7 @@ import { ChessBoard } from "../components/chess/ChessBoard"
 import { Button } from "../components/ui/Button"
 import { Card, CardContent } from "../components/ui/Card"
 import { createEngine } from "../engine/chessEngine"
-import { classifyMove, evaluatePosition } from "../engine/evaluator"
+import { evaluatePosition } from "../engine/evaluator"
 import { cn } from "../lib/utils"
 import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
