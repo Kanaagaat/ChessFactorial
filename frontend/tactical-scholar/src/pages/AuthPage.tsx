@@ -41,7 +41,7 @@ export function AuthPage() {
     if (!username.trim()) nextErrors.username = "Choose a username."
     if (!isLogin && firstName.trim().length < 2) nextErrors.firstName = "Enter your first name."
     if (!isLogin && lastName.trim().length < 2) nextErrors.lastName = "Enter your last name."
-    if (!email.includes("@")) nextErrors.email = "Provide a valid email address."
+    if (!isLogin && !email.includes("@")) nextErrors.email = "Provide a valid email address."
     if (password.length < 8) nextErrors.password = "Use at least 8 characters."
     if (!isLogin && password !== confirmPassword) nextErrors.confirmPassword = "Passwords must match."
 
