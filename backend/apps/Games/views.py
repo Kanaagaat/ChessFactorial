@@ -11,10 +11,11 @@ class GameCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         game = serializer.save(user=self.request.user)
         user = self.request.user
-        user.games_played += 1
-        if game.result == Game.RESULT_WIN:
-            user.games_won += 1
-        user.save(update_fields=["games_played", "games_won"])
+        if game.mode == "ai":
+            user.games_played += 1
+            if game.result == Game.RESULT_WIN:
+                user.games_won += 1
+            user.save(update_fields=["games_played", "games_won"])
 
 
 class GameListView(generics.ListAPIView):

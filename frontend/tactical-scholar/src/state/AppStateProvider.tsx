@@ -83,8 +83,10 @@ function gameRecordToHistory(game: GameRecord): MatchHistoryItem {
 
   // Estimate rating change
   let ratingChange = 0;
-  if (result === "Win") ratingChange = 10;
-  else if (result === "Loss") ratingChange = -8;
+  if (game.mode === "ai") {
+    if (result === "Win") ratingChange = 10;
+    else if (result === "Loss") ratingChange = -8;
+  }
 
   // Format time ago
   const createdAt = new Date(game.created_at);
