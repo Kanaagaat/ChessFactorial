@@ -8,11 +8,14 @@ import { Card, CardContent } from "../components/ui/Card"
 import { cn } from "../lib/utils"
 import {
   Brain, Swords, Crown, Shuffle,
-  Clock, Bot, Users, ChevronRight,
+  Clock, Bot, Users, ChevronRight, X,
 } from "lucide-react"
 import type { GameMode, GameConfig } from "../hooks/useChessGame"
 import type { AIDifficulty } from "../engine/evaluator"
 import type { MathDifficulty } from "../engine/factorial"
+import { useAppState } from "../state/AppStateProvider"
+import { fetchFriends } from "../api/friends"
+import { sendGameInvite } from "../api/games"
 
 const GAME_MODES: { id: GameMode; label: string; icon: typeof Brain; desc: string; color: string }[] = [
   { id: "standard", label: "Standard Chess", icon: Swords, desc: "Classic chess with full rules", color: "emerald" },
@@ -42,6 +45,7 @@ const MATH_LEVELS: { id: MathDifficulty; label: string; desc: string }[] = [
 ]
 
 export function PlaySetup() {
+  const { auth } = useAppState()
   const navigate = useNavigate()
   const [mode, setMode] = React.useState<GameMode>("standard")
   const [opponent, setOpponent] = React.useState<"ai" | "local">("ai")
@@ -49,6 +53,11 @@ export function PlaySetup() {
   const [timeIdx, setTimeIdx] = React.useState(3) // 5+0
   const [color, setColor] = React.useState<"w" | "b" | "random">("w")
   const [mathDiff, setMathDiff] = React.useState<MathDifficulty>("medium")
+  const [friends, setFriends] = React.useState<any[]>([])
+  const [showFriendModal, setShowFriendModal] = React.useState(false)
+  const [inviteError, setInviteError] = React.useState("")
+  const [inviteSuccess, setInviteSuccess] = React.useState("")
+  const [inviteLoading, setInviteLoading] = React.useState(false)
 
   const handleStart = () => {
     const tc = TIME_CONTROLS[timeIdx]
@@ -65,6 +74,49 @@ export function PlaySetup() {
     }
 
     navigate("/gameplay", { state: { config } })
+  }
+
+  const fetchFriendList = React.useCallback(async () => {
+    if (!auth.accessToken) return
+    try {
+      const results = await fetchFriends(auth.accessToken)
+      setFriends(results)
+    } catch (err) {
+      console.error(err)
+    }
+  }, [auth.accessToken])
+
+  React.useEffect(() => {
+    fetchFriendList()
+  }, [fetchFriendList])
+
+  const handleChallengeFriend = async (friend: any) => {
+    if (!auth.accessToken) return
+    setInviteLoading(true)
+    setInviteError("")
+    setInviteSuccess("")
+    const tc = TIME_CONTROLS[timeIdx]
+    const playerColor = color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color
+    const gameId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 10)
+    const gameConfig = {
+      mode,
+      opponent: 'human',
+      playerColor,
+      timeControl: tc.time,
+      increment: tc.increment,
+      mathDifficulty: mathDiff,
+    }
+
+    try {
+      await sendGameInvite(auth.accessToken, friend.username, gameConfig, gameId)
+      setInviteSuccess(`Invite sent to ${friend.username}`)
+      setInviteLoading(false)
+      setShowFriendModal(false)
+    } catch (err: any) {
+      console.error(err)
+      setInviteError(err?.message ?? 'Unable to send invite')
+      setInviteLoading(false)
+    }
   }
 
   return (
@@ -250,13 +302,69 @@ export function PlaySetup() {
         </Card>
       )}
 
-      {/* Start Button */}
-      <Button size="lg" className="w-full text-lg h-14" onClick={handleStart}>
-        {mode === "factorial" && <Brain className="w-5 h-5 mr-2" />}
-        {mode === "standard" && <Swords className="w-5 h-5 mr-2" />}
-        Start Game
-        <ChevronRight className="w-5 h-5 ml-1" />
-      </Button>
+      <div className="flex flex-col gap-3">
+        <Button size="lg" className="w-full text-lg h-14" onClick={handleStart}>
+          {mode === "factorial" && <Brain className="w-5 h-5 mr-2" />}
+          {mode === "standard" && <Swords className="w-5 h-5 mr-2" />}
+          Start Game
+          <ChevronRight className="w-5 h-5 ml-1" />
+        </Button>
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full text-lg h-14"
+          onClick={() => setShowFriendModal(true)}
+          disabled={friends.length === 0}
+        >
+          <Users className="w-5 h-5 mr-2" />
+          Challenge a Friend
+        </Button>
+      </div>
+
+      {showFriendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-surface border border-border-soft shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-border-soft">
+              <div>
+                <h3 className="text-xl font-semibold text-text-primary">Challenge a Friend</h3>
+                <p className="text-sm text-text-secondary">Select a friend to send a private game invite.</p>
+              </div>
+              <button
+                className="text-text-secondary hover:text-text-primary"
+                onClick={() => setShowFriendModal(false)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {inviteError && <div className="rounded-xl bg-danger/10 border border-danger/20 p-3 text-sm text-danger">{inviteError}</div>}
+              {inviteSuccess && <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/20 p-3 text-sm text-emerald-500">{inviteSuccess}</div>}
+              {friends.length === 0 ? (
+                <div className="text-sm text-text-secondary">You don’t have friends yet. Add some in the Friends hub first.</div>
+              ) : (
+                <div className="grid gap-3">
+                  {friends.map((friend) => (
+                    <div key={friend.id} className="flex items-center justify-between gap-3 p-4 rounded-3xl border border-border-soft bg-background">
+                      <div>
+                        <div className="font-medium text-text-primary">{friend.username}</div>
+                        <div className="text-xs text-text-secondary">{friend.rating ?? 1200} ELO</div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleChallengeFriend(friend)}
+                        disabled={inviteLoading}
+                      >
+                        {inviteLoading ? 'Sending…' : 'Invite'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

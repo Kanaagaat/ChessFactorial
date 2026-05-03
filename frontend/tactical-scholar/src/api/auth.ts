@@ -66,6 +66,20 @@ export async function register(payload: {
   return data as { user: AuthUser } & AuthTokens
 }
 
+export async function refreshToken(payload: { refresh: string }) {
+  const response = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload),
+  })
+
+  const data = await parseJson(response)
+  if (!response.ok) {
+    throw data ?? { detail: "Unable to refresh token." }
+  }
+  return data as AuthTokens
+}
+
 export async function fetchMe(accessToken: string) {
   const response = await fetch(`${API_BASE}/api/auth/me/`, {
     method: "GET",

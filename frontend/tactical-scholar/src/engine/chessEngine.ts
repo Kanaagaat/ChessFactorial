@@ -104,7 +104,7 @@ export function createEngine(fen?: string) {
       if (move) {
         lastMoveInfo = { from, to }
         if (move.captured) {
-          capturedPieces[move.color === "w" ? "b" : "w"].push(move.captured as PieceSymbol)
+          capturedPieces[move.color].push(move.captured as PieceSymbol)
         }
       }
       return move
@@ -117,7 +117,7 @@ export function createEngine(fen?: string) {
     const move = chess.undo()
     if (move) {
       if (move.captured) {
-        const color = move.color === "w" ? "b" : "w"
+        const color = move.color
         const idx = capturedPieces[color].lastIndexOf(move.captured as PieceSymbol)
         if (idx !== -1) capturedPieces[color].splice(idx, 1)
       }

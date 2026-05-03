@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { MatchHistoryItem, PlayerProfile } from "../types/domain";
 import { socketClient, type ConnectionState } from "../realtime/socketClient";
-import { login, register, fetchMe, type AuthUser } from "../api/auth";
+import { login, register, refreshToken as refreshAuthToken, fetchMe, type AuthUser } from "../api/auth";
 import { fetchGames, saveGame, type GameRecord } from "../api/games";
 
 interface AuthState {
@@ -136,7 +136,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("refreshToken", refreshToken);
     setAuth((prev) => ({ ...prev, accessToken, refreshToken }));
+    socketClient.setToken(accessToken);
   }, []);
+
+  const refreshAccessToken = React.useCallback(async (refreshToken: string) => {
+    const data = await refreshAuthToken({ refresh: refreshToken });
+    persistTokens(data.access, data.refresh);
+    return data.access;
+  }, [persistTokens]);
+
+  const fetchMeWithRefresh = React.useCallback(async (accessToken: string, refreshToken: string | null) => {
+    try {
+      return await fetchMe(accessToken);
+    } catch {
+      if (!refreshToken) throw new Error("No refresh token available")
+      const nextAccess = await refreshAccessToken(refreshToken);
+      return await fetchMe(nextAccess);
+    }
+  }, [refreshAccessToken]);
 
   const signIn = React.useCallback(async (credentials: { username: string; password: string }) => {
     const data = await login(credentials);
@@ -157,36 +174,55 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("refreshToken");
     setAuth({ isAuthenticated: false, isInitializing: false, accessToken: null, refreshToken: null });
     setState({ ...initialState, connection: state.connection });
+    socketClient.setToken(null);
   }, [state.connection]);
 
   // Save a completed game to backend & refresh profile
   const recordGame = React.useCallback(async (data: { pgn: string; result: string; mode: string; ai_level?: number }) => {
-    const token = auth.accessToken;
+    let token = auth.accessToken;
     if (!token) return;
     try {
       await saveGame(token, data);
-      // Refresh user profile (updated games_played, games_won, rating)
       const user = await fetchMe(token);
       setAuthenticatedUser(user);
-      // Reload history
       await loadHistory(token);
     } catch (err) {
-      console.error("Failed to save game:", err);
+      if (!auth.refreshToken) {
+        console.error("Failed to save game:", err);
+        return;
+      }
+      try {
+        token = await refreshAccessToken(auth.refreshToken);
+        await saveGame(token, data);
+        const user = await fetchMe(token);
+        setAuthenticatedUser(user);
+        await loadHistory(token);
+      } catch (refreshErr) {
+        console.error("Failed to save game after refresh:", refreshErr);
+      }
     }
-  }, [auth.accessToken, setAuthenticatedUser, loadHistory]);
+  }, [auth.accessToken, auth.refreshToken, loadHistory, refreshAccessToken, setAuthenticatedUser]);
 
   // Manually refresh profile from backend
   const refreshProfile = React.useCallback(async () => {
-    const token = auth.accessToken;
+    let token = auth.accessToken;
     if (!token) return;
     try {
       const user = await fetchMe(token);
       setAuthenticatedUser(user);
       await loadHistory(token);
     } catch {
-      // ignore
+      if (!auth.refreshToken) return;
+      try {
+        token = await refreshAccessToken(auth.refreshToken);
+        const user = await fetchMe(token);
+        setAuthenticatedUser(user);
+        await loadHistory(token);
+      } catch {
+        // ignore
+      }
     }
-  }, [auth.accessToken, setAuthenticatedUser, loadHistory]);
+  }, [auth.accessToken, auth.refreshToken, loadHistory, refreshAccessToken, setAuthenticatedUser]);
 
   React.useEffect(() => {
     socketClient.connect();
@@ -203,16 +239,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
     const restoreSession = async () => {
       const token = localStorage.getItem("accessToken");
+      const refreshToken = localStorage.getItem("refreshToken");
       if (!token) {
         setAuth((prev) => ({ ...prev, isInitializing: false }));
         return;
       }
 
       try {
-        const user = await fetchMe(token);
+        const user = await fetchMeWithRefresh(token, refreshToken);
         setState((prev) => ({ ...prev, me: normalizeUser(user) }));
-        setAuth((prev) => ({ ...prev, isAuthenticated: true, isInitializing: false, accessToken: token }));
-        loadHistory(token);
+        setAuth((prev) => ({
+          ...prev,
+          isAuthenticated: true,
+          isInitializing: false,
+          accessToken: localStorage.getItem("accessToken"),
+          refreshToken: localStorage.getItem("refreshToken"),
+        }));
+        socketClient.setToken(localStorage.getItem("accessToken"));
+        loadHistory(localStorage.getItem("accessToken") ?? "");
       } catch {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");

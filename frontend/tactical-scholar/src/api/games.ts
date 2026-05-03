@@ -44,3 +44,21 @@ export async function fetchGames(token: string): Promise<GameRecord[]> {
   if (!response.ok) throw new Error("Failed to fetch games")
   return response.json()
 }
+
+export async function sendGameInvite(
+  token: string,
+  username: string,
+  gameConfig: any,
+  gameId: string
+) {
+  const response = await fetch(`${API_BASE}/api/auth/game/invite/`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ username, gameConfig, gameId }),
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || "Failed to send game invite")
+  }
+  return response.json()
+}

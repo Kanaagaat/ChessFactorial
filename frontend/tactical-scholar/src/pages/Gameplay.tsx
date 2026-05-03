@@ -15,6 +15,8 @@ import { useChessGame, type GameConfig } from "../hooks/useChessGame"
 import { useAppState } from "../state/AppStateProvider"
 import { Flag, RotateCcw, Brain } from "lucide-react"
 
+const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
+
 const DEFAULT_CONFIG: GameConfig = {
   mode: "standard",
   opponent: "ai",
@@ -82,8 +84,14 @@ export function Gameplay() {
   const topColor = isFlipped ? "w" : "b"
   const bottomColor = isFlipped ? "b" : "w"
 
-  const topCaptured = game.gameState.capturedPieces[topColor === "w" ? "b" : "w"]
-  const bottomCaptured = game.gameState.capturedPieces[bottomColor === "w" ? "b" : "w"]
+  const topCaptured = game.gameState.capturedPieces[topColor]
+  const bottomCaptured = game.gameState.capturedPieces[bottomColor]
+
+  const getMaterialScore = (pieces: string[]) => pieces.reduce((sum, p) => sum + (PIECE_VALUES[p] || 0), 0)
+  const topMaterial = getMaterialScore(topCaptured)
+  const bottomMaterial = getMaterialScore(bottomCaptured)
+  const topMaterialAdvantage = Math.max(0, topMaterial - bottomMaterial)
+  const bottomMaterialAdvantage = Math.max(0, bottomMaterial - topMaterial)
 
   return (
     <div className="h-screen w-screen bg-background p-3 md:p-6 overflow-hidden">
@@ -97,6 +105,7 @@ export function Gameplay() {
             isAi={config.opponent === "ai" && topColor !== config.playerColor}
             isThinking={game.isAiThinking && game.gameState.turn === topColor}
             capturedPieces={topCaptured}
+            materialAdvantage={topMaterialAdvantage}
             isTop
           />
 
@@ -141,6 +150,7 @@ export function Gameplay() {
               isAi={config.opponent === "ai" && topColor !== config.playerColor}
               isThinking={game.isAiThinking && game.gameState.turn === topColor}
               capturedPieces={topCaptured}
+              materialAdvantage={topMaterialAdvantage}
               isTop
             />
           </div>
@@ -188,6 +198,7 @@ export function Gameplay() {
               isActive={game.timer.activeColor === bottomColor}
               isAi={config.opponent === "ai" && bottomColor !== config.playerColor}
               capturedPieces={bottomCaptured}
+              materialAdvantage={bottomMaterialAdvantage}
             />
           </div>
 
@@ -228,6 +239,7 @@ export function Gameplay() {
         onAnalyze={() => navigate("/analysis", { state: { pgn: game.gameState.pgn, moves: game.gameState.moveHistory } })}
         onRematch={() => {
           setShowGameOver(false)
+          gameSavedRef.current = false
           game.startGame()
         }}
         onExit={() => navigate("/home")}
