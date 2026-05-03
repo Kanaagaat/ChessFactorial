@@ -133,7 +133,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-vercel_origin = config("CORS_VERCEL_ORIGIN", default="").strip()
+vercel_origin = config("CORS_VERCEL_ORIGIN", default="").strip().rstrip('/')
 if vercel_origin:
     CORS_ALLOWED_ORIGINS.append(vercel_origin)
 
